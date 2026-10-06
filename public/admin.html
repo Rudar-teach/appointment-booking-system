@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - BookEase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { animation: { 'fade-in': 'fadeIn 0.4s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } } } } }</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+    .dark .glass { background: rgba(17,24,39,0.7); }
+    .hero-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+  <nav class="fixed top-0 w-full z-40 glass">
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg hero-gradient flex items-center justify-center text-white font-bold text-sm">BE</div>
+          <span class="text-xl font-bold">BookEase</span>
+        </a>
+        <span class="text-sm text-gray-500 hidden md:block">| Admin Panel</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/admin-bookings.html" class="px-4 py-2 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition">Bookings</a>
+        <a href="/admin-providers.html" class="px-4 py-2 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition">Providers</a>
+        <button onclick="logout()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="pt-24 pb-16 container mx-auto px-4">
+    <h1 class="text-3xl font-bold mb-8">Admin Dashboard</h1>
+
+    <!-- Stats Cards -->
+    <div id="stats-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6"><div class="loading-spinner mx-auto"></div></div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6"><div class="loading-spinner mx-auto"></div></div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6"><div class="loading-spinner mx-auto"></div></div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6"><div class="loading-spinner mx-auto"></div></div>
+    </div>
+
+    <!-- Analytics Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <h3 class="text-lg font-bold mb-4">Revenue (Last 30 Days)</h3>
+        <canvas id="revenueChart" height="250"></canvas>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <h3 class="text-lg font-bold mb-4">Bookings by Status</h3>
+        <canvas id="statusChart" height="250"></canvas>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <h3 class="text-lg font-bold mb-4">Bookings by Provider</h3>
+        <canvas id="providerChart" height="250"></canvas>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <h3 class="text-lg font-bold mb-4">Peak Hours</h3>
+        <canvas id="hoursChart" height="250"></canvas>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+      <h3 class="text-xl font-bold mb-4">Actions</h3>
+      <div class="flex flex-wrap gap-4">
+        <button onclick="sendReminders()" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition">📧 Send Reminders</button>
+        <a href="/admin-bookings.html" class="px-6 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition inline-block">📋 Manage Bookings</a>
+        <a href="/admin-providers.html" class="px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition inline-block">👥 Manage Providers</a>
+      </div>
+      <div id="action-status" class="mt-4 text-sm text-gray-600 dark:text-gray-300"></div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    let revenueChart, statusChart, providerChart, hoursChart;
+
+    async function checkAuth() {
+      try {
+        const data = await api('/auth/me');
+        if (!data.user || data.user.role !== 'admin') {
+          location.href = '/login.html';
+          return;
+        }
+      } catch (e) { location.href = '/login.html'; }
+    }
+
+    async function loadStats() {
+      try {
+        const [statsData, analyticsData] = await Promise.all([
+          api('/admin/stats'),
+          api('/admin/analytics/revenue')
+        ]);
+
+        const stats = statsData;
+
+        const cards = [
+          { label: 'Total Revenue', value: `$${stats.revenue.toFixed(2)}`, change: `${stats.revenueThisMonth > stats.revenueLastMonth ? '+' : ''}$${(stats.revenueThisMonth - stats.revenueLastMonth).toFixed(2)} vs last month`, icon: '💰', color: 'from-green-500 to-emerald-600' },
+          { label: 'Total Bookings', value: stats.bookings, change: `${stats.statusBreakdown.pending} pending`, icon: '📋', color: 'from-blue-500 to-cyan-600' },
+          { label: 'Active Providers', value: stats.providers, change: `${stats.statusBreakdown.checkedIn} checked in today`, icon: '👥', color: 'from-purple-500 to-pink-600' },
+          { label: 'Total Users', value: stats.users, change: `${stats.statusBreakdown.noShows} no-shows`, icon: '👤', color: 'from-orange-500 to-red-600' }
+        ];
+
+        document.getElementById('stats-grid').innerHTML = cards.map(card => `
+          <div class="card-hover bg-gradient-to-br ${card.color} rounded-2xl shadow-lg p-6 text-white">
+            <div class="text-4xl mb-3">${card.icon}</div>
+            <h3 class="text-sm font-medium text-white/80 mb-1">${card.label}</h3>
+            <p class="text-3xl font-bold mb-2">${card.value}</p>
+            <p class="text-sm text-white/70">${card.change}</p>
+          </div>
+        `).join('');
+
+        // Charts
+        renderCharts(analyticsData);
+      } catch (err) {
+        showToast('Failed to load dashboard', 'error');
+      }
+    }
+
+    function renderCharts(data) {
+      const textColor = document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151';
+      const gridColor = document.documentElement.classList.contains('dark') ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+
+      if (revenueChart) revenueChart.destroy();
+      if (statusChart) statusChart.destroy();
+      if (providerChart) providerChart.destroy();
+      if (hoursChart) hoursChart.destroy();
+
+      // Revenue chart
+      const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+      revenueChart = new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+          labels: data.dailyRevenue.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+          datasets: [{
+            label: 'Revenue ($)',
+            data: data.dailyRevenue.map(d => (d.daily_revenue / 100).toFixed(2)),
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: textColor }, grid: { color: gridColor } }, x: { ticks: { color: textColor }, grid: { color: gridColor } } } }
+      });
+
+      // Status chart
+      const statusCtx = document.getElementById('statusChart').getContext('2d');
+      statusChart = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+          labels: data.byStatus.map(s => s.status),
+          datasets: [{ data: data.byStatus.map(s => s.count), backgroundColor: ['#fbbf24', '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#6b7280'] }]
+        },
+        options: { responsive: true }
+      });
+
+      // Provider chart
+      const providerCtx = document.getElementById('providerChart').getContext('2d');
+      providerChart = new Chart(providerCtx, {
+        type: 'bar',
+        data: {
+          labels: data.byProvider.map(p => p.name),
+          datasets: [{ label: 'Bookings', data: data.byProvider.map(p => p.count), backgroundColor: '#8b5cf6' }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: textColor }, grid: { color: gridColor } }, x: { ticks: { color: textColor }, grid: { color: gridColor } } } }
+      });
+
+      // Peak hours
+      const hoursCtx = document.getElementById('hoursChart').getContext('2d');
+      hoursChart = new Chart(hoursCtx, {
+        type: 'bar',
+        data: {
+          labels: data.peakHours.map(h => `${h.hour}:00`),
+          datasets: [{ label: 'Bookings', data: data.peakHours.map(h => h.count), backgroundColor: '#667eea' }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { ticks: { color: textColor }, grid: { color: gridColor } }, x: { ticks: { color: textColor }, grid: { color: gridColor } } } }
+      });
+    }
+
+    async function sendReminders() {
+      const status = document.getElementById('action-status');
+      status.innerHTML = '<div class="loading-spinner inline-block mr-2"></div>Sending reminders...';
+
+      try {
+        const data = await api('/admin/reminders/send', { method: 'POST' });
+        status.textContent = data.message || `Reminders sent: ${data.remindersSent}`;
+        showToast(data.message, 'success');
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+        showToast('Failed to send reminders', 'error');
+      }
+    }
+
+    async function logout() {
+      try {
+        await api('/auth/logout', { method: 'POST' });
+        location.href = '/login.html';
+      } catch (e) { showToast('Logout failed', 'error'); }
+    }
+
+    initDarkMode();
+    checkAuth();
+    loadStats();
+  </script>
+</body>
+</html>

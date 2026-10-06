@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Bookings - Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { animation: { 'fade-in': 'fadeIn 0.3s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } } } } }</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+    .dark .glass { background: rgba(17,24,39,0.7); }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+  <nav class="fixed top-0 w-full z-40 glass">
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-sm">BE</div>
+          <span class="text-xl font-bold">BookEase</span>
+        </a>
+        <span class="text-sm text-gray-500">| Bookings Management</span>
+      </div>
+      <a href="/admin.html" class="px-4 py-2 text-sm hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition">← Dashboard</a>
+    </div>
+  </nav>
+
+  <main class="pt-24 pb-16 container mx-auto px-4">
+    <h1 class="text-3xl font-bold mb-6">Manage Bookings</h1>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <select id="filter-status" onchange="loadBookings()" class="px-4 py-2 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="paid">Paid</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="checked_in">Checked In</option>
+          <option value="no_show">No Show</option>
+        </select>
+        <input type="date" id="filter-from" onchange="loadBookings()" class="px-4 py-2 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white" title="From date">
+        <input type="date" id="filter-to" onchange="loadBookings()" class="px-4 py-2 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white" title="To date">
+        <button onclick="exportCSV()" class="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition">Export CSV</button>
+      </div>
+    </div>
+
+    <!-- Bookings Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Time</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="bookings-table">
+            <tr><td colspan="8" class="text-center py-20"><div class="loading-spinner mx-auto mb-4"></div><p>Loading...</p></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    let allBookings = [];
+
+    async function checkAuth() {
+      try {
+        const data = await api('/auth/me');
+        if (!data.user || data.user.role !== 'admin') location.href = '/login.html';
+      } catch (e) { location.href = '/login.html'; }
+    }
+
+    async function loadBookings() {
+      const status = document.getElementById('filter-status').value;
+      const from = document.getElementById('filter-from').value;
+      const to = document.getElementById('filter-to').value;
+
+      const query = new URLSearchParams();
+      if (status) query.set('status', status);
+      if (from) query.set('fromDate', from);
+      if (to) query.set('toDate', to);
+
+      try {
+        const data = await api(`/admin/bookings?${query}`);
+        allBookings = data.bookings;
+
+        const statusColors = { pending: 'bg-yellow-100 text-yellow-800', confirmed: 'bg-blue-100 text-blue-800', paid: 'bg-green-100 text-green-800', cancelled: 'bg-red-100 text-red-800', checked_in: 'bg-purple-100 text-purple-800', no_show: 'bg-gray-100 text-gray-800' };
+
+        document.getElementById('bookings-table').innerHTML = allBookings.map(b => `
+          <tr class="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 animate-fade-in">
+            <td class="px-6 py-4 text-sm">#${b.id}</td>
+            <td class="px-6 py-4">
+              <div class="text-sm font-medium">${b.customer_name}</div>
+              <div class="text-xs text-gray-500">${b.customer_email}</div>
+            </td>
+            <td class="px-6 py-4 text-sm">${b.provider_name}</td>
+            <td class="px-6 py-4 text-sm">${b.service_name}</td>
+            <td class="px-6 py-4 text-sm">${formatDateTime(b.start_at)}</td>
+            <td class="px-6 py-4 text-sm">${b.paid_amount ? formatCurrency(b.paid_amount) + ' (' + b.payment_method + ')' : '-'}</td>
+            <td class="px-6 py-4"><span class="status-badge ${statusColors[b.status] || 'bg-gray-100'} capitalize">${b.status.replace('_', ' ')}</span></td>
+            <td class="px-6 py-4">
+              <select onchange="updateBookingStatus(${b.id}, this.value)" class="text-sm border rounded-lg px-2 py-1 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                <option value="">Set Status</option>
+                ${['confirmed', 'paid', 'cancelled', 'checked_in', 'no_show'].map(s => `<option value="${s}" ${b.status === s ? 'selected' : ''}>${s.replace('_', ' ')}</option>`).join('')}
+              </select>
+            </td>
+          </tr>
+        `).join('') || '<tr><td colspan="8" class="text-center py-20 text-gray-500">No bookings found</td></tr>';
+      } catch (err) {
+        showToast('Failed to load bookings', 'error');
+      }
+    }
+
+    async function updateBookingStatus(bookingId, status) {
+      if (!status) return;
+      try {
+        await api(`/admin/bookings/${bookingId}/status`, { method: 'PUT', body: { status } });
+        showToast('Status updated', 'success');
+        loadBookings();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    function exportCSV() {
+      if (allBookings.length === 0) { showToast('No data to export', 'warning'); return; }
+      const headers = ['ID', 'Customer', 'Email', 'Provider', 'Service', 'Start', 'Status', 'Payment'];
+      const rows = allBookings.map(b => [b.id, b.customer_name, b.customer_email, b.provider_name, b.service_name, b.start_at, b.status, b.payment_status || 'N/A']);
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'bookings.csv'; a.click();
+      showToast('CSV exported', 'success');
+    }
+
+    async function logout() {
+      try { await api('/auth/logout', { method: 'POST' }); location.href = '/login.html'; }
+      catch (e) { showToast('Logout failed', 'error'); }
+    }
+
+    initDarkMode();
+    checkAuth();
+    loadBookings();
+  </script>
+</body>
+</html>

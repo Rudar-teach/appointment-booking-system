@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Dashboard - BookEase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { animation: { 'fade-in': 'fadeIn 0.4s ease-out', 'slide-up': 'slideUp 0.5s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } } } } }</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+    .dark .glass { background: rgba(17,24,39,0.7); }
+    .hero-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .tab-btn { transition: all 0.2s; }
+    .tab-btn.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+    .status-badge { @apply px-3 py-1 rounded-full text-xs font-medium; }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+  <nav class="fixed top-0 w-full z-40 glass">
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg hero-gradient flex items-center justify-center text-white font-bold text-sm">BE</div>
+        <span class="text-xl font-bold">BookEase</span>
+      </a>
+      <div class="flex items-center gap-3">
+        <button onclick="initDarkMode()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700">🌙</button>
+        <span id="user-name" class="text-sm font-medium"></span>
+        <button onclick="logout()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="pt-24 pb-16 container mx-auto px-4">
+    <h1 class="text-3xl font-bold mb-8">My Dashboard</h1>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-8">
+      <button onclick="switchTab('bookings')" id="tab-bookings" class="tab-btn active px-6 py-2 rounded-lg font-medium">My Bookings</button>
+      <button onclick="switchTab('recurring')" id="tab-recurring" class="tab-btn px-6 py-2 rounded-lg font-medium bg-gray-200 dark:bg-gray-700">Recurring</button>
+      <button onclick="switchTab('reviews')" id="tab-reviews" class="tab-btn px-6 py-2 rounded-lg font-medium bg-gray-200 dark:bg-gray-700">My Reviews</button>
+    </div>
+
+    <!-- Bookings Tab -->
+    <div id="content-bookings">
+      <div id="bookings-list" class="space-y-4">
+        <div class="text-center py-20"><div class="loading-spinner mx-auto mb-4"></div><p>Loading bookings...</p></div>
+      </div>
+    </div>
+
+    <!-- Recurring Tab -->
+    <div id="content-recurring" class="hidden">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 mb-6">
+        <h3 class="text-xl font-bold mb-4">Create Recurring Booking</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <select id="recurring-provider" class="px-4 py-3 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+            <option value="">Select Provider</option>
+          </select>
+          <select id="recurring-service" class="px-4 py-3 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+            <option value="">Select Service</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <select id="recurring-weekday" class="px-4 py-3 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+            <option value="0">Sunday</option><option value="1">Monday</option><option value="2">Tuesday</option>
+            <option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option>
+          </select>
+          <input type="time" id="recurring-time" value="10:00" class="px-4 py-3 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+          <input type="date" id="recurring-until" class="px-4 py-3 rounded-xl border dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+        </div>
+        <button onclick="createRecurring()" class="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition">Create Series</button>
+      </div>
+      <div id="recurring-list" class="space-y-4"></div>
+    </div>
+
+    <!-- Reviews Tab -->
+    <div id="content-reviews" class="hidden">
+      <div id="reviews-list" class="space-y-4">
+        <div class="text-center py-20"><p class="text-gray-500">Loading reviews...</p></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    let currentTab = 'bookings';
+    let allProviders = [];
+    let currentUser = null;
+
+    async function checkAuth() {
+      try {
+        const data = await api('/auth/me');
+        if (!data.user) { location.href = '/login.html'; return; }
+        currentUser = data.user;
+        document.getElementById('user-name').textContent = data.user.name;
+        loadDashboard();
+      } catch (e) { location.href = '/login.html'; }
+    }
+
+    async function loadDashboard() {
+      await loadBookings();
+      await loadProvidersForRecurring();
+      await loadReviews();
+    }
+
+    async function loadBookings() {
+      try {
+        const data = await api('/bookings');
+        const bookings = data.bookings;
+
+        const container = document.getElementById('bookings-list');
+
+        if (bookings.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-20">
+              <div class="text-6xl mb-4">📅</div>
+              <p class="text-gray-500 text-lg mb-4">No bookings yet</p>
+              <a href="/" class="px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 transition inline-block">Browse Providers</a>
+            </div>
+          `;
+          return;
+        }
+
+        const statusColors = {
+          pending: 'bg-yellow-100 text-yellow-800',
+          confirmed: 'bg-blue-100 text-blue-800',
+          paid: 'bg-green-100 text-green-800',
+          cancelled: 'bg-red-100 text-red-800',
+          checked_in: 'bg-purple-100 text-purple-800',
+          no_show: 'bg-gray-100 text-gray-800'
+        };
+
+        container.innerHTML = bookings.map(b => `
+          <div class="card-hover bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6 animate-fade-in">
+            <div class="flex flex-col md:flex-row justify-between gap-4">
+              <div class="flex-1">
+                <div class="flex items-start justify-between mb-2">
+                  <div>
+                    <h3 class="font-bold text-lg">${b.service_name}</h3>
+                    <p class="text-gray-600 dark:text-gray-300">${b.provider_name}</p>
+                  </div>
+                  <span class="status-badge ${statusColors[b.status] || 'bg-gray-100'} capitalize">${b.status.replace('_', ' ')}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-300 mt-3">
+                  <p>📅 ${formatDate(b.start_at)}</p>
+                  <p>⏰ ${formatTime(b.start_at)} - ${formatTime(b.end_at)}</p>
+                  ${b.paid_amount ? `<p>💰 ${formatCurrency(b.paid_amount)}</p>` : ''}
+                  ${b.payment_method ? `<p>💳 ${b.payment_method.toUpperCase()}</p>` : ''}
+                </div>
+              </div>
+              ${b.status !== 'cancelled' ? `
+                <div class="flex gap-2">
+                  ${!b.payment_status ? `<button onclick="payForBooking(${b.id}, ${b.price_cents})" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition">Pay ${formatCurrency(b.price_cents)}</button>` : ''}
+                  <button onclick="cancelBooking(${b.id})" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition">Cancel</button>
+                  ${b.status === 'paid' ? `<button onclick="showReviewModal(${b.id})" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 transition">Review</button>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        document.getElementById('bookings-list').innerHTML = `<p class="text-red-500">Error loading bookings: ${err.message}</p>`;
+      }
+    }
+
+    async function loadProvidersForRecurring() {
+      try {
+        const data = await api('/providers');
+        allProviders = data.providers;
+
+        const select = document.getElementById('recurring-provider');
+        select.innerHTML = '<option value="">Select Provider</option>' +
+          allProviders.map(p => `<option value="${p.id}">${p.name} (${p.type})</option>`).join('');
+
+        select.onchange = async () => {
+          const providerId = parseInt(select.value);
+          const svcSelect = document.getElementById('recurring-service');
+          if (!providerId) { svcSelect.innerHTML = '<option value="">Select Service</option>'; return; }
+          const provider = allProviders.find(p => p.id === providerId);
+          svcSelect.innerHTML = provider.services.map(s => `<option value="${s.id}">${s.name} - ${formatCurrency(s.price_cents)}</option>`).join('');
+        };
+      } catch (err) { showToast('Failed to load providers', 'error'); }
+    }
+
+    async function loadReviews() {
+      try {
+        const data = await api('/bookings');
+        const completedBookings = data.bookings.filter(b => b.status !== 'cancelled' && b.status !== 'pending');
+
+        const reviewPromises = completedBookings.map(async b => {
+          const reviewData = await api(`/reviews/provider/${b.provider_id}`).catch(() => ({ reviews: [] }));
+          return { ...b, reviews: reviewData.reviews.filter(r => r.booking_id === b.id) };
+        });
+
+        const bookingsWithReviews = await Promise.all(reviewPromises);
+        const userReviews = bookingsWithReviews.filter(b => b.reviews.length > 0);
+
+        const container = document.getElementById('reviews-list');
+
+        if (userReviews.length === 0) {
+          container.innerHTML = '<p class="text-center text-gray-500 py-20">No reviews yet. Complete a booking to leave a review!</p>';
+          return;
+        }
+
+        container.innerHTML = userReviews.map(b => {
+          const review = b.reviews[0];
+          return `
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-6">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <h3 class="font-bold">${b.service_name} at ${b.provider_name}</h3>
+                  <p class="text-sm text-gray-500">${formatDate(b.start_at)}</p>
+                </div>
+                <div class="text-yellow-500">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</div>
+              </div>
+              ${review.comment ? `<p class="text-gray-600 dark:text-gray-300 mt-2">"${review.comment}"</p>` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (err) { showToast('Error loading reviews', 'error'); }
+    }
+
+    async function payForBooking(bookingId, priceCents) {
+      const method = prompt('Payment method (card/upi/cash):') || 'card';
+      if (!['card', 'upi', 'cash'].includes(method)) { showToast('Invalid payment method', 'error'); return; }
+
+      try {
+        const data = await api(`/payments/pay`, { method: 'POST', body: { bookingId, method } });
+        showToast(`Payment successful! ${formatCurrency(priceCents)}`, 'success');
+        loadBookings();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function cancelBooking(bookingId) {
+      showModal('Cancel Booking', 'Are you sure you want to cancel this booking?', async () => {
+        try {
+          await api(`/bookings/${bookingId}`, { method: 'DELETE' });
+          showToast('Booking cancelled', 'success');
+          loadBookings();
+        } catch (err) { showToast(err.message, 'error'); }
+      });
+    }
+
+    async function showReviewModal(bookingId) {
+      const rating = prompt('Rating (1-5):');
+      if (!rating || rating < 1 || rating > 5) { showToast('Please enter a rating between 1 and 5', 'warning'); return; }
+      const comment = prompt('Comment (optional):') || '';
+
+      try {
+        await api('/reviews', { method: 'POST', body: { bookingId, rating: parseInt(rating), comment } });
+        showToast('Review submitted!', 'success');
+        loadReviews();
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    async function createRecurring() {
+      const providerId = parseInt(document.getElementById('recurring-provider').value);
+      const serviceId = parseInt(document.getElementById('recurring-service').value);
+      const weekday = parseInt(document.getElementById('recurring-weekday').value);
+      const time = document.getElementById('recurring-time').value;
+      const untilDate = document.getElementById('recurring-until').value;
+
+      if (!providerId || !serviceId || !time || !untilDate) {
+        showToast('Please fill all fields', 'warning');
+        return;
+      }
+
+      try {
+        await api('/recurring', { method: 'POST', body: { providerId, serviceId, weekday, time, untilDate } });
+        showToast('Recurring bookings created!', 'success');
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      ['bookings', 'recurring', 'reviews'].forEach(t => {
+        document.getElementById(`content-${t}`)?.classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-${t}`);
+        btn.classList.toggle('active', t === tab);
+        if (t !== tab) btn.classList.add('bg-gray-200', 'dark:bg-gray-700');
+        else btn.classList.remove('bg-gray-200', 'dark:bg-gray-700');
+      });
+    }
+
+    async function logout() {
+      try {
+        await api('/auth/logout', { method: 'POST' });
+        location.href = '/login.html';
+      } catch (e) { showToast('Logout failed', 'error'); }
+    }
+
+    initDarkMode();
+    checkAuth();
+  </script>
+</body>
+</html>

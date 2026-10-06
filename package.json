@@ -1,0 +1,20 @@
+{
+  "name": "appointment-booking-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-purpose appointment booking system for salons, clinics, tutors, and sports grounds",
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node server/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "better-sqlite3": "^11.6.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "express-rate-limit": "^7.2.0",
+    "cors": "^2.8.5",
+    "qrcode": "^1.5.3",
+    "chart.js": "^4.4.4"
+  }
+}

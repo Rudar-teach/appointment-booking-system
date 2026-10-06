@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Check-In - BookEase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { animation: { 'fade-in': 'fadeIn 0.4s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } } } } }</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+    .dark .glass { background: rgba(17,24,39,0.7); }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white text-2xl font-bold">BE</div>
+      <h1 class="text-3xl font-bold mb-2">QR Check-In</h1>
+      <p class="text-gray-600 dark:text-gray-300">Scan the customer's QR code or enter the token manually</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+      <div class="mb-6">
+        <label class="block text-sm font-medium mb-2">Check-in Token</label>
+        <input type="text" id="token-input" placeholder="Paste token here or scan QR code"
+               class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none">
+      </div>
+
+      <button onclick="validateCheckIn()" class="w-full py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 transition mb-4">
+        Validate Check-In
+      </button>
+
+      <button onclick="simulateQRScan()" class="w-full py-3 bg-gray-200 dark:bg-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">
+        📷 Simulate QR Scan (Demo)
+      </button>
+
+      <div id="checkin-result" class="hidden mt-6"></div>
+    </div>
+
+    <div class="text-center mt-6">
+      <a href="/admin.html" class="text-primary-600 hover:underline text-sm">← Back to Admin</a>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    async function validateCheckIn() {
+      const token = document.getElementById('token-input').value.trim();
+      if (!token) { showToast('Please enter a token', 'warning'); return; }
+
+      try {
+        const data = await api(`/checkin/validate/${token}`);
+        const result = document.getElementById('checkin-result');
+        result.classList.remove('hidden');
+
+        if (data.error) {
+          result.innerHTML = `<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 text-red-700 dark:text-red-300">
+            <div class="text-3xl mb-2">✕</div>
+            <p class="font-semibold">${data.error}</p>
+            ${data.status ? `<p class="text-sm mt-1">Status: ${data.status}</p>` : ''}
+          </div>`;
+        } else {
+          result.innerHTML = `<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 text-green-700 dark:text-green-300">
+            <div class="text-3xl mb-2">✓</div>
+            <p class="font-semibold text-lg">Check-in Successful!</p>
+            <div class="mt-3 space-y-1 text-sm">
+              <p><strong>Customer:</strong> ${data.booking.customer_name}</p>
+              <p><strong>Service:</strong> ${data.booking.service_name}</p>
+              <p><strong>Time:</strong> ${formatDateTime(data.booking.start_at)}</p>
+              <p><strong>Status:</strong> ${data.status}</p>
+            </div>
+          </div>`;
+          showToast('Check-in successful!', 'success');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+        document.getElementById('checkin-result').classList.add('hidden');
+      }
+    }
+
+    async function simulateQRScan() {
+      try {
+        const data = await api('/checkin/pending');
+        const bookings = data.bookings;
+
+        if (bookings.length === 0) {
+          showToast('No upcoming bookings for check-in', 'info');
+          return;
+        }
+
+        // Pick the first upcoming booking
+        const booking = bookings[0];
+        showToast(`Found booking: ${booking.customer_name} - ${booking.service_name}. Generating token...`, 'info');
+
+        // Note: In production, the provider would generate a QR code. For demo, we auto-fill.
+        showToast('In production, scan the customer\'s QR code. Demo mode: enter any token manually.', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function logout() {
+      try { await api('/auth/logout', { method: 'POST' }); location.href = '/login.html'; }
+      catch (e) { showToast('Logout failed', 'error'); }
+    }
+
+    initDarkMode();
+  </script>
+</body>
+</html>

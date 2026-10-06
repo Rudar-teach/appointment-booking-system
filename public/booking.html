@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Appointment - BookEase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          animation: { 'fade-in': 'fadeIn 0.4s ease-out', 'slide-up': 'slideUp 0.5s ease-out', 'pulse-slow': 'pulse 3s infinite' },
+          keyframes: {
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    html { scroll-behavior: smooth; }
+    .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+    .dark .glass { background: rgba(17,24,39,0.7); }
+    .hero-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .slot-available { border: 2px solid #10b981; cursor: pointer; transition: all 0.2s; }
+    .slot-available:hover { background: #10b981; color: white; transform: scale(1.05); }
+    .slot-selected { background: #7c3aed !important; color: white !important; border-color: #7c3aed !important; }
+    .slot-disabled { opacity: 0.3; cursor: not-allowed; }
+    .step { transition: all 0.3s ease; }
+    .step.active { transform: scale(1.05); }
+    .card-hover { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.15); }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+
+  <nav class="fixed top-0 w-full z-40 glass">
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg hero-gradient flex items-center justify-center text-white font-bold text-sm">BE</div>
+        <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-600">BookEase</span>
+      </a>
+      <div class="flex items-center gap-3">
+        <button id="theme-toggle" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition">🌙</button>
+        <span id="auth-nav" class="hidden items-center gap-3">
+          <a href="/dashboard.html" class="text-primary-600 hover:underline">Dashboard</a>
+          <button onclick="logout()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg">Logout</button>
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="pt-24 pb-16 container mx-auto px-4">
+    <div id="provider-info" class="mb-8"></div>
+
+    <!-- Booking Progress -->
+    <div class="max-w-3xl mx-auto mb-10">
+      <div class="flex items-center justify-between">
+        <div class="step active flex-1 text-center" id="step-1">
+          <div class="w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center font-bold mx-auto mb-2">1</div>
+          <p class="text-sm font-medium">Select Slot</p>
+        </div>
+        <div class="h-1 flex-1 bg-gray-300 dark:bg-gray-700 mx-2"></div>
+        <div class="step flex-1 text-center opacity-50" id="step-2">
+          <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 text-gray-600 flex items-center justify-center font-bold mx-auto mb-2">2</div>
+          <p class="text-sm font-medium">Details & Pay</p>
+        </div>
+        <div class="h-1 flex-1 bg-gray-300 dark:bg-gray-700 mx-2"></div>
+        <div class="step flex-1 text-center opacity-50" id="step-3">
+          <div class="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 text-gray-600 flex items-center justify-center font-bold mx-auto mb-2">3</div>
+          <p class="text-sm font-medium">Confirmation</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 1: Select Slot -->
+    <div id="slot-selection" class="max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+        <h2 class="text-2xl font-bold mb-6">Choose Your Appointment</h2>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium mb-2">Select Service</label>
+          <select id="service-select" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500">
+            <option value="">Loading services...</option>
+          </select>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium mb-2">Select Date</label>
+          <input type="date" id="date-input" min="" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500">
+        </div>
+
+        <div id="slots-container" class="hidden">
+          <h3 class="text-lg font-semibold mb-4">Available Time Slots</h3>
+          <div id="slots-grid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Booking Details -->
+    <div id="booking-details" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+        <h2 class="text-2xl font-bold mb-6">Booking Details</h2>
+
+        <div id="booking-summary" class="bg-primary-50 dark:bg-primary-900/20 rounded-xl p-6 mb-6"></div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium mb-2">Notes (optional)</label>
+          <textarea id="booking-notes" rows="3" placeholder="Any special requirements..."
+                    class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500"></textarea>
+        </div>
+
+        <button onclick="proceedToPayment()" class="w-full py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 transition">
+          Proceed to Payment →
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Payment -->
+    <div id="payment-step" class="hidden max-w-3xl mx-auto">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8">
+        <h2 class="text-2xl font-bold mb-6">Payment</h2>
+
+        <div id="payment-summary" class="bg-primary-50 dark:bg-primary-900/20 rounded-xl p-6 mb-6"></div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-medium mb-3">Payment Method</label>
+          <div class="grid grid-cols-3 gap-4">
+            <label class="cursor-pointer">
+              <input type="radio" name="payment" value="card" class="hidden peer" checked>
+              <div class="border-2 border-gray-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 dark:peer-checked:bg-primary-900/20 rounded-xl p-4 text-center transition hover:border-primary-400">
+                <div class="text-3xl mb-2">💳</div>
+                <div class="font-medium">Card</div>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="payment" value="upi" class="hidden peer">
+              <div class="border-2 border-gray-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 dark:peer-checked:bg-primary-900/20 rounded-xl p-4 text-center transition hover:border-primary-400">
+                <div class="text-3xl mb-2">📱</div>
+                <div class="font-medium">UPI</div>
+              </div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="payment" value="cash" class="hidden peer">
+              <div class="border-2 border-gray-300 peer-checked:border-primary-600 peer-checked:bg-primary-50 dark:peer-checked:bg-primary-900/20 rounded-xl p-4 text-center transition hover:border-primary-400">
+                <div class="text-3xl mb-2">💵</div>
+                <div class="font-medium">Cash</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div id="card-fields" class="mb-6 space-y-4">
+          <input type="text" placeholder="Card Number (simulation)" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+          <div class="grid grid-cols-2 gap-4">
+            <input type="text" placeholder="MM/YY" class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+            <input type="text" placeholder="CVC" class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+          </div>
+        </div>
+
+        <button onclick="processPayment()" id="pay-btn" class="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-lg hover:shadow-lg transition flex items-center justify-center gap-2">
+          <span>Pay Now</span>
+          <span id="pay-amount"></span>
+        </button>
+
+        <p class="text-center text-sm text-gray-500 mt-4">🔒 Secure simulation - no real payment processed</p>
+      </div>
+    </div>
+
+    <!-- Step 4: Confirmation -->
+    <div id="confirmation" class="hidden max-w-3xl mx-auto text-center">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12">
+        <div class="text-6xl mb-4">✅</div>
+        <h2 class="text-3xl font-bold mb-4">Booking Confirmed!</h2>
+        <p class="text-gray-600 dark:text-gray-300 mb-8">Your appointment has been booked successfully.</p>
+        <div id="confirmation-details" class="bg-primary-50 dark:bg-primary-900/20 rounded-xl p-6 text-left mb-8"></div>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/dashboard.html" class="px-6 py-3 bg-primary-600 text-white rounded-xl font-medium hover:bg-primary-700 transition">View My Bookings</a>
+          <button onclick="location.href='/'" class="px-6 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Back to Home</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    let providerId = null;
+    let providerData = null;
+    let services = [];
+    let selectedSlot = null;
+    let selectedService = null;
+    let tempBooking = null;
+    let tempPayment = null;
+
+    // Parse URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    providerId = urlParams.get('providerId');
+
+    // Set min date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date-input').min = today;
+
+    document.getElementById('date-input').addEventListener('change', loadSlots);
+    document.getElementById('service-select').addEventListener('change', (e) => {
+      selectedService = services.find(s => s.id === parseInt(e.target.value)) || null;
+      if (selectedService && document.getElementById('date-input').value) {
+        loadSlots();
+      }
+    });
+
+    async function loadProvider() {
+      try {
+        const data = await api(`/providers/${providerId}`);
+        providerData = data;
+        services = data.services || [];
+        const typeEmoji = { salon: '💇', clinic: '🏥', tutor: '📚', turf: '⚽' };
+
+        document.getElementById('provider-info').innerHTML = `
+          <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fade-in">
+            <div class="flex items-start gap-6">
+              <div class="w-24 h-24 rounded-2xl hero-gradient flex items-center justify-center text-5xl flex-shrink-0">${typeEmoji[data.type] || '📋'}</div>
+              <div class="flex-1">
+                <div class="flex items-start justify-between mb-2">
+                  <h1 class="text-3xl font-bold">${data.name}</h1>
+                  <span class="px-3 py-1 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-full capitalize text-sm font-medium">${data.type}</span>
+                </div>
+                <p class="text-gray-600 dark:text-gray-300 mb-2">${data.description || ''}</p>
+                <p class="text-sm text-gray-500">📍 ${data.address || 'Address TBD'}</p>
+                <div class="flex items-center gap-4 mt-3">
+                  <div class="flex items-center gap-1 text-yellow-500">
+                    <span>${'★'.repeat(Math.round(data.rating_avg))}${'☆'.repeat(5 - Math.round(data.rating_avg))}</span>
+                    <span class="text-sm text-gray-600 dark:text-gray-300">${data.rating_avg > 0 ? data.rating_avg.toFixed(1) : 'New'}</span>
+                  </div>
+                  <span class="text-sm text-gray-500">${services.length} services available</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const select = document.getElementById('service-select');
+        select.innerHTML = services.map(s =>
+          `<option value="${s.id}">${s.name} - ${formatCurrency(s.price_cents)} (${s.duration_min} min)</option>`
+        ).join('');
+
+        if (services.length > 0) {
+          selectedService = services[0];
+        }
+      } catch (err) {
+        showToast('Failed to load provider: ' + err.message, 'error');
+      }
+    }
+
+    async function loadSlots() {
+      const date = document.getElementById('date-input').value;
+      if (!date || !selectedService) return;
+
+      const container = document.getElementById('slots-container');
+      const grid = document.getElementById('slots-grid');
+
+      grid.innerHTML = '<div class="col-span-full text-center py-8"><div class="loading-spinner mx-auto"></div></div>';
+      container.classList.remove('hidden');
+
+      try {
+        const data = await api(`/providers/${providerId}/slots?date=${date}&serviceId=${selectedService.id}`);
+        const slots = data.slots;
+
+        if (slots.length === 0) {
+          grid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">No slots available for this date. Try another day.</p>';
+          return;
+        }
+
+        grid.innerHTML = slots.map((slot, i) => {
+          const time = formatTime(slot.start_at);
+          return `<button onclick="selectSlot('${slot.start_at}', '${slot.end_at}', this)"
+                         class="slot-available px-4 py-3 rounded-xl bg-white dark:bg-gray-700 font-medium text-sm animate-fade-in"
+                         style="animation-delay: ${i * 0.03}s">${time}</button>`;
+        }).join('');
+      } catch (err) {
+        showToast('Failed to load slots', 'error');
+      }
+    }
+
+    function selectSlot(startAt, endAt, btn) {
+      document.querySelectorAll('.slot-available').forEach(b => b.classList.remove('slot-selected'));
+      btn.classList.add('slot-selected');
+
+      selectedSlot = { startAt, endAt };
+
+      // Show booking details step
+      document.getElementById('slot-selection').classList.add('hidden');
+      document.getElementById('booking-details').classList.remove('hidden');
+
+      setStep(2);
+
+      document.getElementById('booking-summary').innerHTML = `
+        <div class="space-y-2">
+          <p><strong>Service:</strong> ${selectedService.name}</p>
+          <p><strong>Duration:</strong> ${selectedService.duration_min} minutes</p>
+          <p><strong>Date & Time:</strong> ${formatDateTime(startAt)}</p>
+          <p><strong>Price:</strong> <span class="text-xl font-bold text-primary-600">${formatCurrency(selectedService.price_cents)}</span></p>
+        </div>
+      `;
+    }
+
+    async function proceedToPayment() {
+      if (!selectedSlot) {
+        showToast('Please select a time slot', 'warning');
+        return;
+      }
+
+      const notes = document.getElementById('booking-notes').value;
+
+      try {
+        const data = await api('/bookings', {
+          method: 'POST',
+          body: {
+            providerId: parseInt(providerId),
+            serviceId: selectedService.id,
+            startAt: selectedSlot.startAt,
+            notes
+          }
+        });
+
+        tempBooking = data.booking;
+
+        document.getElementById('booking-details').classList.add('hidden');
+        document.getElementById('payment-step').classList.remove('hidden');
+        setStep(2);
+
+        document.getElementById('pay-amount').textContent = `(${formatCurrency(selectedService.price_cents)})`;
+        document.getElementById('payment-summary').innerHTML = `
+          <div class="space-y-2">
+            <p><strong>Service:</strong> ${selectedService.name}</p>
+            <p><strong>Date & Time:</strong> ${formatDateTime(tempBooking.start_at)}</p>
+            <p><strong>Total:</strong> <span class="text-2xl font-bold text-green-600">${formatCurrency(selectedService.price_cents)}</span></p>
+          </div>
+        `;
+      } catch (err) {
+        showToast(err.message, 'error');
+        document.getElementById('slot-selection').classList.remove('hidden');
+        document.getElementById('booking-details').classList.add('hidden');
+      }
+    }
+
+    async function processPayment() {
+      const method = document.querySelector('input[name="payment"]:checked').value;
+      const btn = document.getElementById('pay-btn');
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="loading-spinner"></div> Processing...';
+
+      try {
+        const data = await api(`/payments/pay`, {
+          method: 'POST',
+          body: {
+            bookingId: tempBooking.id,
+            method
+          }
+        });
+
+        tempPayment = data.payment;
+
+        document.getElementById('payment-step').classList.add('hidden');
+        document.getElementById('confirmation').classList.remove('hidden');
+        setStep(3);
+
+        document.getElementById('confirmation-details').innerHTML = `
+          <div class="space-y-2">
+            <p><strong>Booking ID:</strong> #${tempBooking.id}</p>
+            <p><strong>Service:</strong> ${data.service}</p>
+            <p><strong>Provider:</strong> ${data.provider}</p>
+            <p><strong>Date & Time:</strong> ${formatDateTime(data.start_at)}</p>
+            <p><strong>Payment Method:</strong> <span class="capitalize">${data.payment.method}</span></p>
+            <p><strong>Amount Paid:</strong> <span class="text-xl font-bold text-green-600">$${data.amount}</span></p>
+            <p class="text-sm text-gray-500 mt-2">✅ Payment confirmed (simulated)</p>
+          </div>
+        `;
+
+        showToast('Booking confirmed! 🎉', 'success');
+        triggerConfetti();
+      } catch (err) {
+        showToast('Payment failed: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = `<span>Pay Now</span><span id="pay-amount">(${formatCurrency(selectedService.price_cents)})</span>`;
+      }
+    }
+
+    function setStep(num) {
+      for (let i = 1; i <= 3; i++) {
+        const step = document.getElementById(`step-${i}`);
+        if (i <= num) {
+          step.classList.add('active');
+          step.classList.remove('opacity-50');
+          step.querySelector('div').classList.remove('bg-gray-300', 'dark:bg-gray-700', 'text-gray-600');
+          step.querySelector('div').classList.add('bg-primary-600', 'text-white');
+        } else {
+          step.classList.remove('active');
+          step.classList.add('opacity-50');
+          step.querySelector('div').classList.remove('bg-primary-600', 'text-white');
+          step.querySelector('div').classList.add('bg-gray-300', 'dark:bg-gray-700', 'text-gray-600');
+        }
+      }
+    }
+
+    // Confetti effect
+    function triggerConfetti() {
+      const colors = ['#667eea', '#764ba2', '#f093fb', '#4ade80', '#facc15'];
+      for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + 'vw';
+        confetti.style.top = '-10px';
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.animation = `fall ${1 + Math.random() * 2}s linear`;
+        document.body.appendChild(confetti);
+
+        setTimeout(() => confetti.remove(), 3000);
+      }
+    }
+
+    // Add confetti CSS
+    const style = document.createElement('style');
+    style.textContent = `@keyframes fall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }`;
+    document.head.appendChild(style);
+
+    async function checkAuth() {
+      try {
+        const data = await api('/auth/me');
+        if (data.user) {
+          document.getElementById('auth-nav').classList.remove('hidden');
+          document.getElementById('auth-nav').classList.add('flex');
+        }
+      } catch (e) {
+        // Not logged in
+      }
+    }
+
+    async function logout() {
+      try {
+        await api('/auth/logout', { method: 'POST' });
+        showToast('Logged out', 'success');
+        location.reload();
+      } catch (e) { showToast('Logout failed', 'error'); }
+    }
+
+    initDarkMode();
+    loadProvider();
+    checkAuth();
+  </script>
+</body>
+</html>

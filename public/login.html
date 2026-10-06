@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - BookEase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { animation: { 'fade-in': 'fadeIn 0.4s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } } } } } }</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+    .dark .glass { background: rgba(17,24,39,0.7); }
+    .hero-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <a href="/" class="inline-flex items-center gap-2 mb-4">
+        <div class="w-10 h-10 rounded-xl hero-gradient flex items-center justify-center text-white font-bold">BE</div>
+        <span class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-600">BookEase</span>
+      </a>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 animate-fade-in">
+      <div class="flex mb-6 border-b border-gray-200 dark:border-gray-700">
+        <button onclick="showTab('login')" id="tab-login" class="flex-1 pb-3 text-center font-semibold text-primary-600 border-b-2 border-primary-600">Sign In</button>
+        <button onclick="showTab('register')" id="tab-register" class="flex-1 pb-3 text-center font-semibold text-gray-400">Create Account</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Email</label>
+            <input type="email" id="login-email" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="you@example.com">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Password</label>
+            <input type="password" id="login-password" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="••••••••">
+          </div>
+          <button type="submit" id="login-btn" class="w-full py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 transition">
+            Sign In
+          </button>
+        </div>
+      </form>
+
+      <!-- Register Form -->
+      <form id="register-form" class="hidden" onsubmit="handleRegister(event)">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium mb-1">Full Name</label>
+            <input type="text" id="reg-name" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="John Doe">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Email</label>
+            <input type="email" id="reg-email" required class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="you@example.com">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Phone (optional)</label>
+            <input type="tel" id="reg-phone" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="+1234567890">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Password (min 6 chars)</label>
+            <input type="password" id="reg-password" required minlength="6" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none" placeholder="••••••••">
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">I am a...</label>
+            <select id="reg-role" class="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-primary-500 outline-none">
+              <option value="customer">Customer - Booking appointments</option>
+              <option value="provider">Provider - Running a business</option>
+            </select>
+          </div>
+          <button type="submit" id="register-btn" class="w-full py-3 bg-primary-600 text-white rounded-xl font-semibold hover:bg-primary-700 transition">
+            Create Account
+          </button>
+        </div>
+      </form>
+
+      <div id="login-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm"></div>
+    </div>
+
+    <div class="mt-6 text-center">
+      <p class="text-gray-500 text-sm">Demo accounts available after <code class="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">npm run seed</code></p>
+      <div class="mt-2 text-xs text-gray-400 space-y-1">
+        <p>Admin: admin@demo.com / admin123</p>
+        <p>Customer: customer@demo.com / customer123</p>
+        <p>Provider: salon@demo.com / provider123</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    function showTab(tab) {
+      const loginForm = document.getElementById('login-form');
+      const regForm = document.getElementById('register-form');
+      const loginTab = document.getElementById('tab-login');
+      const regTab = document.getElementById('tab-register');
+
+      if (tab === 'login') {
+        loginForm.classList.remove('hidden');
+        regForm.classList.add('hidden');
+        loginTab.classList.add('text-primary-600', 'border-b-2', 'border-primary-600');
+        loginTab.classList.remove('text-gray-400');
+        regTab.classList.remove('text-primary-600', 'border-b-2', 'border-primary-600');
+        regTab.classList.add('text-gray-400');
+      } else {
+        loginForm.classList.add('hidden');
+        regForm.classList.remove('hidden');
+        regTab.classList.add('text-primary-600', 'border-b-2', 'border-primary-600');
+        regTab.classList.remove('text-gray-400');
+        loginTab.classList.remove('text-primary-600', 'border-b-2', 'border-primary-600');
+        loginTab.classList.add('text-gray-400');
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const btn = document.getElementById('login-btn');
+      const errorDiv = document.getElementById('login-error');
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+      errorDiv.classList.add('hidden');
+
+      try {
+        const data = await api('/auth/login', {
+          method: 'POST',
+          body: { email, password }
+        });
+
+        showToast(`Welcome back, ${data.user.name}!`, 'success');
+        setTimeout(() => {
+          if (data.user.role === 'admin') location.href = '/admin.html';
+          else if (data.user.role === 'provider') location.href = '/dashboard.html';
+          else location.href = '/';
+        }, 500);
+      } catch (err) {
+        errorDiv.textContent = err.message;
+        errorDiv.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value;
+      const email = document.getElementById('reg-email').value;
+      const phone = document.getElementById('reg-phone').value;
+      const password = document.getElementById('reg-password').value;
+      const role = document.getElementById('reg-role').value;
+      const btn = document.getElementById('register-btn');
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="loading-spinner mx-auto"></div> Creating account...';
+
+      try {
+        const data = await api('/auth/register', {
+          method: 'POST',
+          body: { name, email, phone, password, role }
+        });
+
+        showToast('Account created!', 'success');
+        setTimeout(() => location.reload(), 500);
+      } catch (err) {
+        showToast(err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    }
+
+    async function logout() {
+      try {
+        await api('/auth/logout', { method: 'POST' });
+        showToast('Logged out', 'success');
+        location.reload();
+      } catch (e) { showToast('Logout failed', 'error'); }
+    }
+
+    initDarkMode();
+  </script>
+</body>
+</html>
