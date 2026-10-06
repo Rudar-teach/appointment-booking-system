@@ -33,20 +33,23 @@ router.get('/', (req, res) => {
   query += ' ORDER BY b.start_at DESC';
 
   const bookings = db.prepare(query).all(...params);
-
   res.json({ bookings });
 });
 
-// Create booking (with atomic double-booking check)
-router.post('/', (req, res, next) => {
-  const { providerId, serviceId, startAt } = req.body;
+// Booking + Payment in ONE atomic transaction (mandatory payment)
+router.post('/book-and-pay', (req, res, next) => {
+  const { providerId, serviceId, startAt, method, notes } = req.body;
   const customerId = req.user.id;
 
-  if (!providerId || !serviceId || !startAt) {
-    throw new ValidationError('Provider, service, and start time are required');
+  if (!providerId || !serviceId || !startAt || !method) {
+    throw new ValidationError('Provider, service, start time, and payment method are required');
   }
 
-  // Verify service exists and get duration
+  if (!['card', 'upi', 'cash'].includes(method)) {
+    throw new ValidationError('Payment method must be card, upi, or cash');
+  }
+
+  // Verify service exists and get duration + price
   const service = db.prepare('SELECT * FROM services WHERE id = ? AND provider_id = ?').get(serviceId, providerId);
   if (!service) {
     throw new ValidationError('Service not found');
@@ -59,8 +62,9 @@ router.post('/', (req, res, next) => {
     throw new ValidationError('Cannot book in the past');
   }
 
-  // Atomic check-and-insert to prevent double-booking
+  // ATOMIC transaction: double-booking check + create booking + create payment
   const result = db.transaction(() => {
+    // Double-booking check
     const conflict = db.prepare(`
       SELECT id FROM bookings
       WHERE provider_id = ?
@@ -74,28 +78,59 @@ router.post('/', (req, res, next) => {
       throw new Error('This time slot is no longer available');
     }
 
-    const insert = db.prepare(`
-      INSERT INTO bookings (customer_id, provider_id, service_id, start_at, end_at, status)
-      VALUES (?, ?, ?, ?, ?, 'pending')
-    `);
+    // Insert booking directly as 'paid'
+    const bookingInfo = db.prepare(`
+      INSERT INTO bookings (customer_id, provider_id, service_id, start_at, end_at, status, notes)
+      VALUES (?, ?, ?, ?, ?, 'paid', ?)
+    `).run(customerId, providerId, serviceId, start.toISOString(), end.toISOString(), notes || '');
 
-    const info = insert.run(customerId, providerId, serviceId, start.toISOString(), end.toISOString());
+    const bookingId = bookingInfo.lastInsertRowid;
 
-    return info.lastInsertRowid;
+    // Insert payment record
+    const paymentInfo = db.prepare(`
+      INSERT INTO payments (booking_id, amount_cents, status, method)
+      VALUES (?, ?, 'simulated_paid', ?)
+    `).run(bookingId, service.price_cents, method);
+
+    // Update booking with payment_id
+    db.prepare(`
+      UPDATE bookings SET payment_id = ? WHERE id = ?
+    `).run(paymentInfo.lastInsertRowid, bookingId);
+
+    return {
+      bookingId,
+      paymentId: paymentInfo.lastInsertRowid
+    };
   })();
 
+  // Fetch the complete booking with joined data
   const booking = db.prepare(`
-    SELECT b.*, p.name as provider_name, s.name as service_name, s.price_cents, s.duration_min
+    SELECT b.*, p.name as provider_name, p.type as provider_type,
+           s.name as service_name, s.duration_min, s.price_cents,
+           pay.id as payment_id, pay.status as payment_status, pay.method as payment_method,
+           pay.amount_cents as paid_amount, pay.created_at as payment_date
     FROM bookings b
     JOIN providers p ON p.id = b.provider_id
     JOIN services s ON s.id = b.service_id
+    LEFT JOIN payments pay ON pay.booking_id = b.id
     WHERE b.id = ?
-  `).get(result);
+  `).get(result.bookingId);
 
-  res.status(201).json({ booking });
+  res.status(201).json({
+    success: true,
+    booking,
+    payment: {
+      id: result.paymentId,
+      amount_cents: service.price_cents,
+      status: 'simulated_paid',
+      method,
+      created_at: new Date().toISOString()
+    },
+    message: 'Booking and payment successful!'
+  });
 });
 
-// Cancel booking
+// Cancel booking (refund if paid)
 router.delete('/:id', (req, res) => {
   const booking = db.prepare('SELECT * FROM bookings WHERE id = ? AND customer_id = ?').get(req.params.id, req.user.id);
 
@@ -107,11 +142,16 @@ router.delete('/:id', (req, res) => {
     return res.status(400).json({ error: 'Booking already cancelled' });
   }
 
+  // If booking was paid, refund it
+  if (booking.payment_id && booking.status === 'paid') {
+    db.prepare(`UPDATE payments SET status = 'refunded' WHERE id = ?`).run(booking.payment_id);
+  }
+
   db.prepare(`
     UPDATE bookings SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?
   `).run(req.params.id);
 
-  res.json({ success: true, message: 'Booking cancelled' });
+  res.json({ success: true, message: booking.status === 'paid' ? 'Booking cancelled and refund processed' : 'Booking cancelled' });
 });
 
 module.exports = router;

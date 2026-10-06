@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment History - BookEase</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class', theme: { extend: { animation: { 'fade-in': 'fadeIn 0.4s ease-out', 'slide-up': 'slideUp 0.5s ease-out', 'count-up': 'countUp 0.6s ease-out' }, keyframes: { fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }, countUp: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } } } }</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(255,255,255,0.7); backdrop-filter: blur(10px); }
+    .dark .glass { background: rgba(17,24,39,0.7); }
+    .hero-gradient { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+  <nav class="fixed top-0 w-full z-40 glass">
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg hero-gradient flex items-center justify-center text-white font-bold text-sm">BE</div>
+          <span class="text-xl font-bold">BookEase</span>
+        </a>
+        <span class="text-sm text-gray-500 hidden md:block">| Payment History</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/dashboard.html" class="px-4 py-2 text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition">← Dashboard</a>
+        <button onclick="logout()" class="px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="pt-24 pb-16 container mx-auto px-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+      <div>
+        <h1 class="text-3xl font-bold">Payment History</h1>
+        <p class="text-gray-600 dark:text-gray-300 mt-1">All your orders and transactions in one place</p>
+      </div>
+      <button onclick="exportCSV()" class="mt-4 md:mt-0 px-4 py-2 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        Export CSV
+      </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fade-in">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900 flex items-center justify-center text-2xl">💰</div>
+          <span class="text-xs text-gray-500">Total</span>
+        </div>
+        <p id="stat-total" class="text-2xl font-bold">$0.00</p>
+        <p class="text-sm text-gray-500 mt-1">Total Spent</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fade-in" style="animation-delay: 0.05s">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-2xl">📦</div>
+          <span class="text-xs text-gray-500">Count</span>
+        </div>
+        <p id="stat-orders" class="text-2xl font-bold">0</p>
+        <p class="text-sm text-gray-500 mt-1">Total Orders</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fade-in" style="animation-delay: 0.1s">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-2xl">📊</div>
+          <span class="text-xs text-gray-500">Average</span>
+        </div>
+        <p id="stat-avg" class="text-2xl font-bold">$0.00</p>
+        <p class="text-sm text-gray-500 mt-1">Avg. Order Value</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 animate-fade-in" style="animation-delay: 0.15s">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 rounded-xl bg-orange-100 dark:bg-orange-900 flex items-center justify-center text-2xl">📅</div>
+          <span class="text-xs text-gray-500">Last</span>
+        </div>
+        <p id="stat-last" class="text-2xl font-bold">-</p>
+        <p class="text-sm text-gray-500 mt-1">Last Order</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8">
+      <h3 class="font-semibold mb-4 flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+        Filters
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">From Date</label>
+          <input type="date" id="filter-from" onchange="loadHistory()" class="w-full px-3 py-2 rounded-lg border dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">To Date</label>
+          <input type="date" id="filter-to" onchange="loadHistory()" class="w-full px-3 py-2 rounded-lg border dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Payment Method</label>
+          <select id="filter-method" onchange="loadHistory()" class="w-full px-3 py-2 rounded-lg border dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+            <option value="">All Methods</option>
+            <option value="card">Card</option>
+            <option value="upi">UPI</option>
+            <option value="cash">Cash</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Provider Type</label>
+          <select id="filter-type" onchange="loadHistory()" class="w-full px-3 py-2 rounded-lg border dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+            <option value="">All Types</option>
+            <option value="salon">Salon</option>
+            <option value="clinic">Clinic</option>
+            <option value="tutor">Tutor</option>
+            <option value="turf">Turf</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Methods Breakdown -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+      <!-- Chart -->
+      <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <h3 class="font-semibold mb-4">Spending by Method</h3>
+        <canvas id="methodChart" height="200"></canvas>
+      </div>
+
+      <!-- Monthly Spending -->
+      <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+        <h3 class="font-semibold mb-4">Monthly Spending</h3>
+        <canvas id="monthlyChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="font-semibold">Order Details</h3>
+        <p class="text-sm text-gray-500" id="orders-count">Loading...</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+            </tr>
+          </thead>
+          <tbody id="payments-table">
+            <tr><td colspan="7" class="text-center py-20"><div class="loading-spinner mx-auto mb-4"></div><p>Loading payment history...</p></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Order Detail Modal -->
+  <div id="order-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-8 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold">Order Details</h3>
+        <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+      </div>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    let allPayments = [];
+    let methodChartInstance = null;
+    let monthlyChartInstance = null;
+
+    async function checkAuth() {
+      try {
+        const data = await api('/auth/me');
+        if (!data.user) location.href = '/login.html';
+      } catch (e) { location.href = '/login.html'; }
+    }
+
+    async function loadHistory() {
+      const from = document.getElementById('filter-from').value;
+      const to = document.getElementById('filter-to').value;
+      const method = document.getElementById('filter-method').value;
+      const type = document.getElementById('filter-type').value;
+
+      const query = new URLSearchParams();
+      if (from) query.set('fromDate', from);
+      if (to) query.set('toDate', to);
+      if (method) query.set('method', method);
+
+      try {
+        const data = await api(`/payments/history?${query}`);
+        allPayments = data.payments;
+
+        // Apply type filter client-side
+        let filtered = allPayments;
+        if (type) filtered = allPayments.filter(p => p.provider_type === type);
+
+        // Update stats
+        document.getElementById('stat-total').textContent = data.stats.totalSpentFormatted;
+        document.getElementById('stat-orders').textContent = data.stats.totalBookings;
+        document.getElementById('stat-avg').textContent = data.stats.avgOrderValueFormatted;
+        document.getElementById('stat-last').textContent = data.stats.lastOrder ? new Date(data.stats.lastOrder).toLocaleDateString() : '-';
+
+        // Update orders count
+        document.getElementById('orders-count').textContent = `Showing ${filtered.length} of ${data.stats.totalBookings} orders`;
+
+        // Render table
+        const methodLabels = { card: '💳 Card', upi: '📱 UPI', cash: '💵 Cash' };
+        const methodColors = { card: 'bg-blue-100 text-blue-800', upi: 'bg-green-100 text-green-800', cash: 'bg-yellow-100 text-yellow-800' };
+        const typeEmoji = { salon: '💇', clinic: '🏥', tutor: '📚', turf: '⚽' };
+
+        const tbody = document.getElementById('payments-table');
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center py-20">
+            <div class="text-6xl mb-4">📭</div>
+            <p class="text-gray-500 text-lg">No orders found</p>
+            <p class="text-gray-400 text-sm mt-2">Try adjusting your filters</p>
+          </td></tr>`;
+        } else {
+          tbody.innerHTML = filtered.map((p, i) => `
+            <tr class="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 animate-fade-in" style="animation-delay: ${i * 0.03}s">
+              <td class="px-6 py-4">
+                <button onclick="showOrderDetail(${p.payment_id})" class="font-mono font-medium text-primary-600 hover:underline">#${p.payment_id}</button>
+              </td>
+              <td class="px-6 py-4 text-sm">${formatDate(p.payment_date)}</td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <span>${typeEmoji[p.provider_type] || '📋'}</span>
+                  <div>
+                    <div class="text-sm font-medium">${p.provider_name}</div>
+                    <div class="text-xs text-gray-500 capitalize">${p.provider_type}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 text-sm">${p.service_name}</td>
+              <td class="px-6 py-4">
+                <span class="px-2 py-1 rounded-full text-xs font-medium ${methodColors[p.payment_method] || 'bg-gray-100'}">${methodLabels[p.payment_method] || p.payment_method}</span>
+              </td>
+              <td class="px-6 py-4 font-bold text-green-600">${formatCurrency(p.amount_cents)}</td>
+              <td class="px-6 py-4">
+                <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 capitalize">Paid</span>
+              </td>
+            </tr>
+          `).join('');
+        }
+
+        // Render charts
+        renderCharts(data);
+      } catch (err) {
+        showToast('Failed to load payment history', 'error');
+      }
+    }
+
+    function renderCharts(data) {
+      const textColor = document.documentElement.classList.contains('dark') ? '#e5e7eb' : '#374151';
+      const gridColor = document.documentElement.classList.contains('dark') ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+
+      // Method breakdown chart
+      const methodData = data.breakdown.byMethod;
+      const methodLabels = { card: 'Card', upi: 'UPI', cash: 'Cash' };
+      const methodColors = { card: '#3b82f6', upi: '#10b981', cash: '#f59e0b' };
+
+      if (methodChartInstance) methodChartInstance.destroy();
+      const methodCtx = document.getElementById('methodChart').getContext('2d');
+      methodChartInstance = new Chart(methodCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(methodData).map(k => methodLabels[k] || k),
+          datasets: [{
+            data: Object.values(methodData).map(v => (v / 100).toFixed(2)),
+            backgroundColor: Object.keys(methodData).map(k => methodColors[k] || '#6b7280'),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: textColor, padding: 15 } },
+            tooltip: { callbacks: { label: (ctx) => ` $${ctx.raw}` } }
+          }
+        }
+      });
+
+      // Monthly spending chart
+      const monthlyData = data.breakdown.byMonth;
+      const sortedMonths = Object.keys(monthlyData).sort();
+      const monthLabels = sortedMonths.map(m => {
+        const [y, mo] = m.split('-');
+        return new Date(y, mo - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      });
+      const monthValues = sortedMonths.map(m => (monthlyData[m] / 100).toFixed(2));
+
+      if (monthlyChartInstance) monthlyChartInstance.destroy();
+      const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+      monthlyChartInstance = new Chart(monthlyCtx, {
+        type: 'bar',
+        data: {
+          labels: monthLabels,
+          datasets: [{
+            label: 'Spent ($)',
+            data: monthValues,
+            backgroundColor: 'rgba(102, 126, 234, 0.8)',
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { color: textColor, callback: (v) => '$' + v }, grid: { color: gridColor } },
+            x: { ticks: { color: textColor }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function showOrderDetail(paymentId) {
+      const payment = allPayments.find(p => p.payment_id === paymentId);
+      if (!payment) return;
+
+      const methodLabels = { card: 'Credit/Debit Card', upi: 'UPI', cash: 'Cash at Venue' };
+      const modal = document.getElementById('order-modal');
+      const content = document.getElementById('modal-content');
+
+      content.innerHTML = `
+        <div class="space-y-4">
+          <div class="bg-gray-50 dark:bg-gray-700 rounded-xl p-4 space-y-2">
+            <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Order ID</span><span class="font-mono font-bold">#${payment.payment_id}</span></div>
+            <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Booking ID</span><span class="font-mono">#${payment.booking_id}</span></div>
+            <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Payment Date</span><span>${formatDateTime(payment.payment_date)}</span></div>
+            <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Method</span><span class="capitalize">${methodLabels[payment.payment_method] || payment.payment_method}</span></div>
+            <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Status</span><span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium capitalize">${payment.payment_status}</span></div>
+          </div>
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <h4 class="font-semibold mb-3">Booking Details</h4>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Service</span><span class="font-medium">${payment.service_name}</span></div>
+              <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Provider</span><span class="font-medium">${payment.provider_name}</span></div>
+              <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Type</span><span class="capitalize">${payment.provider_type}</span></div>
+              <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Address</span><span class="text-right max-w-xs">${payment.provider_address || 'N/A'}</span></div>
+              <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Date & Time</span><span>${formatDateTime(payment.start_at)}</span></div>
+              <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-300">Duration</span><span>${payment.duration_min} min</span></div>
+            </div>
+          </div>
+          <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div class="flex justify-between items-center">
+              <span class="font-semibold text-lg">Amount Paid</span>
+              <span class="text-3xl font-bold text-green-600">${formatCurrency(payment.amount_cents)}</span>
+            </div>
+          </div>
+          <button onclick="closeModal()" class="w-full py-3 bg-gray-200 dark:bg-gray-700 rounded-xl font-medium hover:bg-gray-300 transition">Close</button>
+        </div>
+      `;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('order-modal').classList.add('hidden');
+    }
+
+    function exportCSV() {
+      if (allPayments.length === 0) { showToast('No data to export', 'warning'); return; }
+      const headers = ['Order ID', 'Booking ID', 'Date', 'Provider', 'Type', 'Service', 'Method', 'Amount', 'Status'];
+      const rows = allPayments.map(p => [p.payment_id, p.booking_id, p.payment_date, p.provider_name, p.provider_type, p.service_name, p.payment_method, (p.amount_cents / 100).toFixed(2), p.payment_status]);
+      const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `payment-history-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+      showToast('CSV exported!', 'success');
+    }
+
+    async function logout() {
+      try { await api('/auth/logout', { method: 'POST' }); location.href = '/login.html'; }
+      catch (e) { showToast('Logout failed', 'error'); }
+    }
+
+    initDarkMode();
+    checkAuth();
+    loadHistory();
+  </script>
+</body>
+</html>
